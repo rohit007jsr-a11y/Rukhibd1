@@ -22,6 +22,7 @@ interface NavbarProps {
   onOpenSearch: () => void;
   onSelectCategory: (catId: string) => void;
   onOpenAuth: () => void;
+  onOpenAdmin?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -32,8 +33,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenSearch,
   onSelectCategory,
   onOpenAuth,
+  onOpenAdmin,
 }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [megaMenuOpen, setMegaMenuOpen] = useState(false);
 
@@ -205,6 +207,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {user ? user.full_name?.split(' ')[0] || 'Account' : 'Sign In'}
               </span>
             </button>
+
+            {/* Admin Panel Link */}
+            {onOpenAdmin && (
+              <button
+                onClick={onOpenAdmin}
+                className="p-1.5 sm:p-2 bg-[#E63946] text-white border-2 border-[#111111] shadow-[2px_2px_0px_#111111] sm:shadow-[3px_3px_0px_#111111] hover:bg-[#111111] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer flex items-center gap-1"
+                title="Admin Panel"
+              >
+                <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                <span className="hidden sm:inline font-heading font-black text-xs uppercase">
+                  {profile?.role === 'admin' ? 'Admin' : 'Admin'}
+                </span>
+              </button>
+            )}
           </div>
         </div>
       </div>

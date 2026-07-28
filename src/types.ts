@@ -24,6 +24,7 @@ export interface Product {
   badge?: string;
   tag?: string;
   is_featured?: boolean;
+  is_active?: boolean;
 }
 
 export interface Category {
@@ -71,7 +72,59 @@ export interface User {
   full_name?: string;
   phone?: string;
   address?: string;
+  role?: 'customer' | 'admin';
   created_at?: string;
+}
+
+export interface SiteContentMap {
+  top_banner?: {
+    text: string;
+  };
+  hero_banner?: {
+    title: string;
+    subtitle: string;
+    button_text: string;
+    badge_text: string;
+  };
+  announcement_bar?: {
+    text: string;
+  };
+  cod_trust_banner?: {
+    title: string;
+    subtitle: string;
+  };
+  footer?: {
+    heading: string;
+    description: string;
+    contact_phone: string;
+    contact_email: string;
+  };
+  [key: string]: any;
+}
+
+export interface FinancialMetrics {
+  totalRevenue: number;
+  totalOrders: number;
+  avgOrderValue: number;
+  statusBreakdown: {
+    processing: number;
+    outForDelivery: number;
+    delivered: number;
+    cancelled: number;
+  };
+  dailyRevenue: { date: string; revenue: number; ordersCount: number }[];
+}
+
+export interface AdminUserItem {
+  id: string;
+  email: string;
+  full_name?: string;
+  phone?: string;
+  address?: string;
+  role: 'customer' | 'admin';
+  created_at?: string;
+  order_count?: number;
+  total_spent?: number;
 }
 
 export interface OrderItem {

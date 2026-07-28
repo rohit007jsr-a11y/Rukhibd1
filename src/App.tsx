@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Product, CartItem } from './types';
 import { useScrollReveal } from './hooks/useScrollReveal';
 import { useAuth } from './context/AuthContext';
@@ -22,6 +22,7 @@ import { SearchModal } from './components/SearchModal';
 import { CheckoutModal } from './components/CheckoutModal';
 import { AuthModal } from './components/AuthModal';
 import { UserProfileModal } from './components/UserProfileModal';
+import { AdminPanel } from './components/admin/AdminPanel';
 
 export default function App() {
   useScrollReveal();
@@ -31,6 +32,27 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [wishlist, setWishlist] = useState<Product[]>([]);
+  const [isAdminView, setIsAdminView] = useState(() => {
+    return window.location.pathname === '/admin' || window.location.hash === '#admin';
+  });
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setIsAdminView(window.location.pathname === '/admin' || window.location.hash === '#admin');
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const handleOpenAdmin = () => {
+    window.history.pushState({}, '', '/admin');
+    setIsAdminView(true);
+  };
+
+  const handleCloseAdmin = () => {
+    window.history.pushState({}, '', '/');
+    setIsAdminView(false);
+  };
 
   // Modals & Drawers
   const [cartOpen, setCartOpen] = useState(false);
@@ -108,6 +130,10 @@ export default function App() {
     }, 50);
   };
 
+  if (isAdminView) {
+    return <AdminPanel onClose={handleCloseAdmin} />;
+  }
+
   return (
     <div className="min-h-screen bg-[#F7F7F5] text-[#111111] font-body selection:bg-[#E63946] selection:text-white flex flex-col justify-between overflow-x-hidden w-full max-w-full">
       <div>
@@ -120,6 +146,7 @@ export default function App() {
           onOpenSearch={() => setSearchOpen(true)}
           onSelectCategory={handleSelectCategory}
           onOpenAuth={handleOpenAccount}
+          onOpenAdmin={handleOpenAdmin}
         />
 
         <main className="w-full overflow-x-hidden">

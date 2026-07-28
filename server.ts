@@ -41,6 +41,18 @@ async function initDB() {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
 
+      CREATE TABLE IF NOT EXISTS profiles (
+        id UUID PRIMARY KEY,
+        email VARCHAR(255) NOT NULL,
+        full_name VARCHAR(255),
+        phone VARCHAR(50),
+        address TEXT,
+        role VARCHAR(20) DEFAULT 'customer',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      ALTER TABLE profiles ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'customer';
+
       CREATE TABLE IF NOT EXISTS products (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
@@ -60,13 +72,22 @@ async function initDB() {
         is_bestseller BOOLEAN DEFAULT false,
         is_trending BOOLEAN DEFAULT false,
         is_new BOOLEAN DEFAULT false,
+        is_active BOOLEAN DEFAULT true,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
+
+      CREATE TABLE IF NOT EXISTS site_content (
+        section_key VARCHAR(100) PRIMARY KEY,
+        content JSONB NOT NULL,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
 
       CREATE TABLE IF NOT EXISTS orders (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         order_number VARCHAR(50) UNIQUE NOT NULL,
-        user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+        user_id UUID,
         guest_email VARCHAR(255),
         shipping_name VARCHAR(255) NOT NULL,
         shipping_phone VARCHAR(50) NOT NULL,
@@ -91,21 +112,37 @@ async function initDB() {
       );
     `);
 
+    // Seed default site content if empty
+    const siteContentRes = await client.query('SELECT COUNT(*) FROM site_content');
+    if (parseInt(siteContentRes.rows[0].count, 10) === 0) {
+      console.log('[DB] Seeding initial site_content...');
+      await client.query(`
+        INSERT INTO site_content (section_key, content)
+        VALUES
+        ('top_banner', '{"text": "🚚 ALL BANGLADESH CASH ON DELIVERY AVAILABLE | CHECK YOUR PARCEL BEFORE PAYING!"}'::jsonb),
+        ('hero_banner', '{"title": "RUKHI BANGLADESH MARKETPLACE", "subtitle": "100% Cash-on-Delivery across all 64 districts. Inspect your parcel before handing over cash.", "button_text": "EXPLORE COLLECTION", "badge_text": "TRUSTED COD MARKETPLACE"}'::jsonb),
+        ('announcement_bar', '{"text": "🔥 Ramadan Special: Free Delivery on orders over ৳3000!"}'::jsonb),
+        ('cod_trust_banner', '{"title": "100% Cash On Delivery Guarantee", "subtitle": "Never pay in advance. Inspect product condition at your doorstep before releasing payment to courier."}'::jsonb),
+        ('footer', '{"heading": "RUKHI BANGLADESH", "description": "Bangladesh''s trusted multi-category Cash-on-Delivery e-commerce marketplace.", "contact_phone": "+880 1700-000000", "contact_email": "support@rukhi.com.bd"}'::jsonb)
+        ON CONFLICT (section_key) DO NOTHING;
+      `);
+    }
+
     // Seed default products if empty
     const productCountRes = await client.query('SELECT COUNT(*) FROM products');
     if (parseInt(productCountRes.rows[0].count, 10) === 0) {
       console.log('[DB] Seeding initial products into database...');
       await client.query(`
-        INSERT INTO products (name, category, sub_category, price, original_price, rating, reviews_count, image_url, description, is_bestseller, stock_status, tag, stock)
+        INSERT INTO products (name, category, sub_category, price, original_price, rating, reviews_count, image_url, description, is_bestseller, stock_status, tag, stock, is_active)
         VALUES 
-        ('Ergonomic Breathable Mesh Executive Office Chair', 'home', 'Organizers', 6850, 8500, 4.8, 34, 'https://images.unsplash.com/photo-1580481072645-022f9a6d83d0?auto=format&fit=crop&q=80&w=600', 'High-density lumbar support ergonomic chair.', true, 'in_stock', 'Home Office', 25),
-        ('Noise-Cancelling Wireless Over-Ear Headphones PRO', 'electronics', 'Headphones', 4200, 5500, 4.9, 88, 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=600', 'Active Noise Cancellation Bluetooth headset with deep bass.', false, 'in_stock', 'Top Electronics', 18),
-        ('Traditional Jamdani Weave Cotton Saree - Midnight Blue', 'fashion', 'Sarees', 3450, 4200, 4.7, 52, 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&q=80&w=600', 'Handcrafted Jamdani weave saree made with fine cotton.', true, 'in_stock', 'Heritage Fashion', 12),
-        ('Premuim Slim Fit Kabli Panjabi Set - Charcoal', 'fashion', 'Panjabi & Kurta', 2890, 3500, 4.8, 41, 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&q=80&w=600', 'Modern slim-fit Panjabi set with matching pajamas.', false, 'in_stock', 'Eid Collection', 30),
-        ('Stainless Steel 7-Piece Non-Stick Cookware Set', 'home', 'Cookware', 5200, 6500, 4.6, 29, 'https://images.unsplash.com/photo-1584992236310-6edddc08acff?auto=format&fit=crop&q=80&w=600', 'Heavy-duty induction compatible cooking set.', true, 'in_stock', 'Kitchen Must-Have', 15),
-        ('Pure Sundarban Raw Honey (Organic - 500g)', 'groceries', 'Honey', 850, 1050, 5.0, 112, 'https://images.unsplash.com/photo-1587049352847-4a222e784d38?auto=format&fit=crop&q=80&w=600', '100% natural wild honey from Sundarban mangrove forests.', false, 'in_stock', 'Organic Harvest', 50),
-        ('Smart AMOLED Display Fitness Watch with SpO2', 'electronics', 'Smartwatches', 2990, 3800, 4.5, 63, 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=600', '1.78 inch HD AMOLED smartwatch with heart rate monitoring.', true, 'in_stock', 'Best Seller', 22),
-        ('Natural Cold Pressed Kani Mustard Oil (1 Liter)', 'groceries', 'Mustard Oil', 360, 420, 4.9, 74, 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&q=80&w=600', 'Traditionally extracted cold pressed mustard oil.', false, 'in_stock', 'Grocery Essential', 100);
+        ('Ergonomic Breathable Mesh Executive Office Chair', 'home', 'Organizers', 6850, 8500, 4.8, 34, 'https://images.unsplash.com/photo-1580481072645-022f9a6d83d0?auto=format&fit=crop&q=80&w=600', 'High-density lumbar support ergonomic chair.', true, 'in_stock', 'Home Office', 25, true),
+        ('Noise-Cancelling Wireless Over-Ear Headphones PRO', 'electronics', 'Headphones', 4200, 5500, 4.9, 88, 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=600', 'Active Noise Cancellation Bluetooth headset with deep bass.', false, 'in_stock', 'Top Electronics', 18, true),
+        ('Traditional Jamdani Weave Cotton Saree - Midnight Blue', 'fashion', 'Sarees', 3450, 4200, 4.7, 52, 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&q=80&w=600', 'Handcrafted Jamdani weave saree made with fine cotton.', true, 'in_stock', 'Heritage Fashion', 12, true),
+        ('Premuim Slim Fit Kabli Panjabi Set - Charcoal', 'fashion', 'Panjabi & Kurta', 2890, 3500, 4.8, 41, 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&q=80&w=600', 'Modern slim-fit Panjabi set with matching pajamas.', false, 'in_stock', 'Eid Collection', 30, true),
+        ('Stainless Steel 7-Piece Non-Stick Cookware Set', 'home', 'Cookware', 5200, 6500, 4.6, 29, 'https://images.unsplash.com/photo-1584992236310-6edddc08acff?auto=format&fit=crop&q=80&w=600', 'Heavy-duty induction compatible cooking set.', true, 'in_stock', 'Kitchen Must-Have', 15, true),
+        ('Pure Sundarban Raw Honey (Organic - 500g)', 'groceries', 'Honey', 850, 1050, 5.0, 112, 'https://images.unsplash.com/photo-1587049352847-4a222e784d38?auto=format&fit=crop&q=80&w=600', '100% natural wild honey from Sundarban mangrove forests.', false, 'in_stock', 'Organic Harvest', 50, true),
+        ('Smart AMOLED Display Fitness Watch with SpO2', 'electronics', 'Smartwatches', 2990, 3800, 4.5, 63, 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=600', '1.78 inch HD AMOLED smartwatch with heart rate monitoring.', true, 'in_stock', 'Best Seller', 22, true),
+        ('Natural Cold Pressed Kani Mustard Oil (1 Liter)', 'groceries', 'Mustard Oil', 360, 420, 4.9, 74, 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&q=80&w=600', 'Traditionally extracted cold pressed mustard oil.', false, 'in_stock', 'Grocery Essential', 100, true);
       `);
     }
 
@@ -116,22 +153,386 @@ async function initDB() {
   }
 }
 
-// API Routes
+// Admin Verification Helper
+async function isUserAdmin(userId?: string): Promise<boolean> {
+  if (!userId || !dbConnected) return false;
+  try {
+    const profRes = await pool.query('SELECT role FROM profiles WHERE id = $1', [userId]);
+    if (profRes.rows.length > 0 && profRes.rows[0].role === 'admin') {
+      return true;
+    }
+    const userRes = await pool.query('SELECT role FROM users WHERE id = $1', [userId]);
+    if (userRes.rows.length > 0 && userRes.rows[0].role === 'admin') {
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.error('[Admin Verification Error]:', err);
+    return false;
+  }
+}
 
-// Health Check
-app.get('/api/db-health', async (_req, res) => {
+// Check Role Endpoint
+app.get('/api/admin/check-role', async (req, res) => {
+  const userId = req.query.user_id as string;
+  if (!userId) {
+    return res.status(400).json({ isAdmin: false, error: 'User ID is required' });
+  }
+  const isAdmin = await isUserAdmin(userId);
+  return res.json({ isAdmin, userId });
+});
+
+// Get Site Content (Public)
+app.get('/api/site-content', async (_req, res) => {
   if (!dbConnected) {
-    return res.status(503).json({ connected: false, message: 'Database connection unavailable' });
+    return res.status(503).json({ message: 'Database connection unavailable' });
   }
   try {
-    const dbRes = await pool.query('SELECT version()');
-    return res.json({ connected: true, version: dbRes.rows[0].version });
-  } catch (err) {
-    return res.status(500).json({ connected: false, error: (err as Error).message });
+    const result = await pool.query('SELECT section_key, content FROM site_content');
+    const contentMap: Record<string, any> = {};
+    for (const row of result.rows) {
+      contentMap[row.section_key] = row.content;
+    }
+    return res.json(contentMap);
+  } catch (err: any) {
+    console.error('[Get Site Content Error]:', err);
+    return res.status(500).json({ message: err.message });
   }
 });
 
-// Get Products
+// Update Site Content (Admin Only)
+app.put('/api/admin/site-content', async (req, res) => {
+  const { user_id, section_key, content } = req.body;
+  if (!dbConnected) {
+    return res.status(503).json({ message: 'Database connection unavailable' });
+  }
+  const isAdmin = await isUserAdmin(user_id);
+  if (!isAdmin) {
+    return res.status(403).json({ message: 'Access Denied: Admin authorization required' });
+  }
+
+  try {
+    await pool.query(
+      `INSERT INTO site_content (section_key, content, updated_at)
+       VALUES ($1, $2, CURRENT_TIMESTAMP)
+       ON CONFLICT (section_key)
+       DO UPDATE SET content = $2, updated_at = CURRENT_TIMESTAMP`,
+      [section_key, JSON.stringify(content)]
+    );
+    return res.json({ success: true, section_key, content });
+  } catch (err: any) {
+    console.error('[Update Site Content Error]:', err);
+    return res.status(500).json({ message: err.message });
+  }
+});
+
+// Get Admin Products List (Includes inactive)
+app.get('/api/admin/products', async (req, res) => {
+  const userId = req.query.user_id as string;
+  if (!dbConnected) {
+    return res.status(503).json({ message: 'Database connection unavailable' });
+  }
+  const isAdmin = await isUserAdmin(userId);
+  if (!isAdmin) {
+    return res.status(403).json({ message: 'Access Denied: Admin authorization required' });
+  }
+
+  try {
+    const result = await pool.query('SELECT * FROM products ORDER BY id DESC');
+    const mapped = result.rows.map((p) => ({
+      id: p.id,
+      name: p.name,
+      category: p.category,
+      subCategory: p.sub_category,
+      price: Number(p.price),
+      originalPrice: p.original_price ? Number(p.original_price) : undefined,
+      rating: Number(p.rating),
+      reviewsCount: p.reviews_count,
+      image: p.image_url,
+      image_url: p.image_url,
+      description: p.description,
+      isBestseller: p.is_bestseller,
+      isTrending: p.is_trending,
+      isNew: p.is_new,
+      is_active: p.is_active !== false,
+      stockStatus: p.stock_status,
+      tag: p.tag,
+      stock: p.stock,
+    }));
+    return res.json(mapped);
+  } catch (err: any) {
+    return res.status(500).json({ message: err.message });
+  }
+});
+
+// Create Product (Admin Only)
+app.post('/api/admin/products', async (req, res) => {
+  const { user_id, name, category, sub_category, price, original_price, image_url, description, stock, stock_status, tag, is_bestseller, is_trending, is_new } = req.body;
+  if (!dbConnected) {
+    return res.status(503).json({ message: 'Database connection unavailable' });
+  }
+  const isAdmin = await isUserAdmin(user_id);
+  if (!isAdmin) {
+    return res.status(403).json({ message: 'Access Denied: Admin authorization required' });
+  }
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO products (name, category, sub_category, price, original_price, image_url, description, stock, stock_status, tag, is_bestseller, is_trending, is_new, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, true)
+       RETURNING *`,
+      [name, category, sub_category || null, price, original_price || null, image_url, description || '', stock || 10, stock_status || 'in_stock', tag || null, is_bestseller || false, is_trending || false, is_new || false]
+    );
+    const p = result.rows[0];
+    return res.json({
+      id: p.id,
+      name: p.name,
+      category: p.category,
+      subCategory: p.sub_category,
+      price: Number(p.price),
+      originalPrice: p.original_price ? Number(p.original_price) : undefined,
+      image_url: p.image_url,
+      description: p.description,
+      stock: p.stock,
+      stockStatus: p.stock_status,
+      tag: p.tag,
+      is_active: true,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ message: err.message });
+  }
+});
+
+// Update Product (Admin Only)
+app.put('/api/admin/products/:id', async (req, res) => {
+  const { id } = req.params;
+  const { user_id, name, category, sub_category, price, original_price, image_url, description, stock, stock_status, tag, is_bestseller, is_trending, is_new, is_active } = req.body;
+  if (!dbConnected) {
+    return res.status(503).json({ message: 'Database connection unavailable' });
+  }
+  const isAdmin = await isUserAdmin(user_id);
+  if (!isAdmin) {
+    return res.status(403).json({ message: 'Access Denied: Admin authorization required' });
+  }
+
+  try {
+    await pool.query(
+      `UPDATE products 
+       SET name = $1, category = $2, sub_category = $3, price = $4, original_price = $5, image_url = $6, description = $7, stock = $8, stock_status = $9, tag = $10, is_bestseller = $11, is_trending = $12, is_new = $13, is_active = $14
+       WHERE id = $15`,
+      [name, category, sub_category, price, original_price, image_url, description, stock, stock_status, tag, is_bestseller, is_trending, is_new, is_active !== false, id]
+    );
+    return res.json({ success: true, id });
+  } catch (err: any) {
+    return res.status(500).json({ message: err.message });
+  }
+});
+
+// Soft Delete Product (Admin Only - sets is_active = false)
+app.delete('/api/admin/products/:id', async (req, res) => {
+  const { id } = req.params;
+  const userId = (req.query.user_id as string) || req.body?.user_id;
+  if (!dbConnected) {
+    return res.status(503).json({ message: 'Database connection unavailable' });
+  }
+  const isAdmin = await isUserAdmin(userId);
+  if (!isAdmin) {
+    return res.status(403).json({ message: 'Access Denied: Admin authorization required' });
+  }
+
+  try {
+    await pool.query('UPDATE products SET is_active = false WHERE id = $1', [id]);
+    return res.json({ success: true, id, message: 'Product deactivated (soft deleted)' });
+  } catch (err: any) {
+    return res.status(500).json({ message: err.message });
+  }
+});
+
+// User Management (Admin Only)
+app.get('/api/admin/users', async (req, res) => {
+  const userId = req.query.user_id as string;
+  if (!dbConnected) {
+    return res.status(503).json({ message: 'Database connection unavailable' });
+  }
+  const isAdmin = await isUserAdmin(userId);
+  if (!isAdmin) {
+    return res.status(403).json({ message: 'Access Denied: Admin authorization required' });
+  }
+
+  try {
+    // Combine profiles and users tables
+    const usersQuery = await pool.query(`
+      SELECT 
+        p.id, 
+        p.email, 
+        p.full_name, 
+        p.phone, 
+        p.address, 
+        COALESCE(p.role, 'customer') as role, 
+        p.created_at,
+        COUNT(o.id)::int as order_count,
+        COALESCE(SUM(o.total_price), 0)::numeric as total_spent
+      FROM profiles p
+      LEFT JOIN orders o ON p.id = o.user_id
+      GROUP BY p.id, p.email, p.full_name, p.phone, p.address, p.role, p.created_at
+      ORDER BY p.created_at DESC
+    `);
+
+    const usersList = usersQuery.rows.map((u) => ({
+      id: u.id,
+      email: u.email,
+      full_name: u.full_name,
+      phone: u.phone,
+      address: u.address,
+      role: u.role,
+      created_at: u.created_at,
+      order_count: u.order_count,
+      total_spent: Number(u.total_spent),
+    }));
+
+    return res.json(usersList);
+  } catch (err: any) {
+    return res.status(500).json({ message: err.message });
+  }
+});
+
+// User Order History (Admin Only)
+app.get('/api/admin/users/:id/orders', async (req, res) => {
+  const targetUserId = req.params.id;
+  const adminUserId = req.query.admin_user_id as string;
+  if (!dbConnected) {
+    return res.status(503).json({ message: 'Database connection unavailable' });
+  }
+  const isAdmin = await isUserAdmin(adminUserId);
+  if (!isAdmin) {
+    return res.status(403).json({ message: 'Access Denied: Admin authorization required' });
+  }
+
+  try {
+    const ordersRes = await pool.query(
+      `SELECT * FROM orders WHERE user_id = $1 ORDER BY created_at DESC`,
+      [targetUserId]
+    );
+
+    const orders = [];
+    for (const row of ordersRes.rows) {
+      const itemsRes = await pool.query('SELECT * FROM order_items WHERE order_id = $1', [row.id]);
+      orders.push({
+        ...row,
+        subtotal: Number(row.subtotal),
+        delivery_fee: Number(row.delivery_fee),
+        total_price: Number(row.total_price),
+        items: itemsRes.rows.map((it) => ({
+          ...it,
+          price: Number(it.price),
+        })),
+      });
+    }
+
+    return res.json(orders);
+  } catch (err: any) {
+    return res.status(500).json({ message: err.message });
+  }
+});
+
+// Financial Reporting (Admin Only)
+app.get('/api/admin/financials', async (req, res) => {
+  const userId = req.query.user_id as string;
+  const range = (req.query.range as string) || 'all'; // all, 7d, 30d, month
+  if (!dbConnected) {
+    return res.status(503).json({ message: 'Database connection unavailable' });
+  }
+  const isAdmin = await isUserAdmin(userId);
+  if (!isAdmin) {
+    return res.status(403).json({ message: 'Access Denied: Admin authorization required' });
+  }
+
+  try {
+    let dateCondition = '';
+    if (range === '7d') {
+      dateCondition = "WHERE created_at >= NOW() - INTERVAL '7 days'";
+    } else if (range === '30d') {
+      dateCondition = "WHERE created_at >= NOW() - INTERVAL '30 days'";
+    } else if (range === 'month') {
+      dateCondition = "WHERE DATE_TRUNC('month', created_at) = DATE_TRUNC('month', NOW())";
+    }
+
+    const summaryQuery = await pool.query(`
+      SELECT 
+        COALESCE(SUM(total_price), 0)::numeric as total_revenue,
+        COUNT(*)::int as total_orders,
+        COALESCE(AVG(total_price), 0)::numeric as avg_order_value,
+        COUNT(CASE WHEN status = 'Processing' THEN 1 END)::int as processing_count,
+        COUNT(CASE WHEN status = 'Out for Delivery' THEN 1 END)::int as delivery_count,
+        COUNT(CASE WHEN status = 'Delivered' THEN 1 END)::int as delivered_count,
+        COUNT(CASE WHEN status = 'Cancelled' THEN 1 END)::int as cancelled_count
+      FROM orders
+      ${dateCondition}
+    `);
+
+    const timelineQuery = await pool.query(`
+      SELECT 
+        TO_CHAR(created_at, 'YYYY-MM-DD') as date,
+        COALESCE(SUM(total_price), 0)::numeric as revenue,
+        COUNT(*)::int as orders_count
+      FROM orders
+      ${dateCondition}
+      GROUP BY TO_CHAR(created_at, 'YYYY-MM-DD')
+      ORDER BY date ASC
+    `);
+
+    const recentOrdersQuery = await pool.query(`
+      SELECT * FROM orders ORDER BY created_at DESC LIMIT 20
+    `);
+
+    const summary = summaryQuery.rows[0];
+
+    return res.json({
+      totalRevenue: Number(summary.total_revenue),
+      totalOrders: Number(summary.total_orders),
+      avgOrderValue: Number(summary.avg_order_value),
+      statusBreakdown: {
+        processing: summary.processing_count,
+        outForDelivery: summary.delivery_count,
+        delivered: summary.delivered_count,
+        cancelled: summary.cancelled_count,
+      },
+      dailyRevenue: timelineQuery.rows.map((r) => ({
+        date: r.date,
+        revenue: Number(r.revenue),
+        ordersCount: r.orders_count,
+      })),
+      recentOrders: recentOrdersQuery.rows.map((o) => ({
+        ...o,
+        total_price: Number(o.total_price),
+      })),
+    });
+  } catch (err: any) {
+    return res.status(500).json({ message: err.message });
+  }
+});
+
+// Update Order Status (Admin Only)
+app.put('/api/admin/orders/:id/status', async (req, res) => {
+  const { id } = req.params;
+  const { user_id, status } = req.body;
+  if (!dbConnected) {
+    return res.status(503).json({ message: 'Database connection unavailable' });
+  }
+  const isAdmin = await isUserAdmin(user_id);
+  if (!isAdmin) {
+    return res.status(403).json({ message: 'Access Denied: Admin authorization required' });
+  }
+
+  try {
+    await pool.query('UPDATE orders SET status = $1 WHERE id = $2', [status, id]);
+    return res.json({ success: true, id, status });
+  } catch (err: any) {
+    return res.status(500).json({ message: err.message });
+  }
+});
+
+// Public Products list (filters only active products)
 app.get('/api/products', async (req, res) => {
   const { category, q } = req.query;
 
@@ -140,22 +541,17 @@ app.get('/api/products', async (req, res) => {
   }
 
   try {
-    let queryStr = 'SELECT * FROM products';
+    let queryStr = 'SELECT * FROM products WHERE is_active = true';
     const queryParams: any[] = [];
-    const conditions: string[] = [];
 
     if (category && category !== 'all') {
       queryParams.push(category);
-      conditions.push(`category = $${queryParams.length}`);
+      queryStr += ` AND category = $${queryParams.length}`;
     }
 
     if (q) {
       queryParams.push(`%${q}%`);
-      conditions.push(`(name ILIKE $${queryParams.length} OR description ILIKE $${queryParams.length})`);
-    }
-
-    if (conditions.length > 0) {
-      queryStr += ' WHERE ' + conditions.join(' AND ');
+      queryStr += ` AND (name ILIKE $${queryParams.length} OR description ILIKE $${queryParams.length})`;
     }
 
     queryStr += ' ORDER BY id ASC';
