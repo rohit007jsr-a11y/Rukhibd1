@@ -1,0 +1,6 @@
+{
+  "name": "Rukhi",
+  "description": "Bangladesh-based online marketplace with cash-on-delivery across all product categories.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
