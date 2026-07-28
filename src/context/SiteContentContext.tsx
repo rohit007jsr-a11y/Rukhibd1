@@ -37,7 +37,18 @@ interface SiteContentContextType {
 const SiteContentContext = createContext<SiteContentContextType | undefined>(undefined);
 
 export const SiteContentProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [siteContent, setSiteContent] = useState<SiteContentMap>(DEFAULT_SITE_CONTENT);
+  const [siteContent, setSiteContent] = useState<SiteContentMap>(() => {
+    try {
+      const saved = localStorage.getItem('rukhi_site_content_v2');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { ...DEFAULT_SITE_CONTENT, ...parsed };
+      }
+    } catch (e) {
+      // ignore
+    }
+    return DEFAULT_SITE_CONTENT;
+  });
   const [loading, setLoading] = useState(true);
 
   const fetchContent = async () => {
@@ -47,7 +58,13 @@ export const SiteContentProvider: React.FC<{ children: ReactNode }> = ({ childre
       if (res.ok) {
         const data = await res.json();
         if (data && Object.keys(data).length > 0) {
-          setSiteContent((prev) => ({ ...prev, ...data }));
+          setSiteContent((prev) => {
+            const merged = { ...prev, ...data };
+            try {
+              localStorage.setItem('rukhi_site_content_v2', JSON.stringify(merged));
+            } catch (e) {}
+            return merged;
+          });
           setLoading(false);
           return;
         }
@@ -58,9 +75,15 @@ export const SiteContentProvider: React.FC<{ children: ReactNode }> = ({ childre
       if (dbRows && dbRows.length > 0) {
         const mapped: Record<string, any> = {};
         dbRows.forEach((r) => {
-          mapped[r.section_key] = r.content;
+          mapped[r.section_key] = typeof r.content === 'string' ? JSON.parse(r.content) : r.content;
         });
-        setSiteContent((prev) => ({ ...prev, ...mapped }));
+        setSiteContent((prev) => {
+          const merged = { ...prev, ...mapped };
+          try {
+            localStorage.setItem('rukhi_site_content_v2', JSON.stringify(merged));
+          } catch (e) {}
+          return merged;
+        });
       }
     } catch (err) {
       console.warn('[Site Content Fetch Warning]:', err);
@@ -74,10 +97,16 @@ export const SiteContentProvider: React.FC<{ children: ReactNode }> = ({ childre
   }, []);
 
   const updateSectionInMemory = (sectionKey: string, content: any) => {
-    setSiteContent((prev) => ({
-      ...prev,
-      [sectionKey]: content,
-    }));
+    setSiteContent((prev) => {
+      const updated = {
+        ...prev,
+        [sectionKey]: content,
+      };
+      try {
+        localStorage.setItem('rukhi_site_content_v2', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
   };
 
   return (
