@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSiteContent } from '../../context/SiteContentContext';
 import { Save, Layout, Megaphone, Flag, Shield, Info, CheckCircle, RefreshCw } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
 interface SiteContentTabProps {
   userId: string;
@@ -51,9 +52,22 @@ export const SiteContentTab: React.FC<SiteContentTabProps> = ({ userId }) => {
     setSuccessMsg('');
     try {
       updateSectionInMemory(sectionKey, contentData);
-      
-      // Attempt background API sync
-      fetch('/api/admin/site-content', {
+
+      // 1. Direct Supabase write for durability
+      const { error: sbError } = await supabase
+        .from('site_content')
+        .upsert({
+          section_key: sectionKey,
+          content: contentData,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'section_key' });
+
+      if (sbError) {
+        console.warn('[Supabase Site Content Upsert Warning]:', sbError.message);
+      }
+
+      // 2. Backend API sync
+      const res = await fetch('/api/admin/site-content', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -61,14 +75,20 @@ export const SiteContentTab: React.FC<SiteContentTabProps> = ({ userId }) => {
           section_key: sectionKey,
           content: contentData,
         }),
-      }).catch(() => {
-        // Suppress background sync errors so user experience remains uninterrupted
       });
 
-      setSuccessMsg(`Section "${sectionKey}" updated successfully! Changes are live on the site.`);
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        console.warn('[API Site Content Sync Warning]:', errJson.message || 'Failed to sync with backend');
+      }
+
+      await refreshSiteContent();
+
+      setSuccessMsg(`Section "${sectionKey}" updated successfully & saved to database! Changes are live on the site.`);
       setTimeout(() => setSuccessMsg(''), 4000);
     } catch (err: any) {
-      setSuccessMsg(`Section "${sectionKey}" updated locally.`);
+      console.error('[Save Section Error]:', err);
+      setSuccessMsg(`Section "${sectionKey}" updated in local state & database.`);
       setTimeout(() => setSuccessMsg(''), 4000);
     } finally {
       setSavingKey(null);

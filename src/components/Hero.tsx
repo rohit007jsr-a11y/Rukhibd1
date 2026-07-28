@@ -1,5 +1,6 @@
 import React from 'react';
 import { Truck, ShieldCheck, ArrowRight, PackageCheck, Banknote } from 'lucide-react';
+import { useSiteContent } from '../context/SiteContentContext';
 
 interface HeroProps {
   onShopClick: () => void;
@@ -7,6 +8,13 @@ interface HeroProps {
 }
 
 export const Hero: React.FC<HeroProps> = ({ onShopClick, onExploreCategoriesClick }) => {
+  const { siteContent } = useSiteContent();
+  const hero = (siteContent.hero_banner || {}) as any;
+  const badgeText = hero.badge_text || 'Zero Advance Payment • 100% Cash On Delivery';
+  const title = hero.title || 'CHECK YOUR PARCEL BEFORE PAYING CASH';
+  const subtitle = hero.subtitle || 'Welcome to Rukhi. We deliver genuine electronics, fashion, home goods, and beauty products across all 64 districts in Bangladesh with 100% Cash-on-Delivery. Inspect your order at your doorstep before handing over payment.';
+  const buttonText = hero.button_text || 'BROWSE PRODUCTS';
+
   return (
     <section className="relative bg-[#F7F7F5] border-b-2 border-[#111111] overflow-hidden py-8 sm:py-12 md:py-20 w-full max-w-full">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
@@ -15,16 +23,15 @@ export const Hero: React.FC<HeroProps> = ({ onShopClick, onExploreCategoriesClic
           <div className="lg:col-span-7 space-y-4 sm:space-y-6">
             <div className="inline-flex max-w-full items-center gap-1.5 bg-[#111111] text-white px-2.5 py-1 text-[10px] sm:text-xs font-heading font-black uppercase tracking-wider border-2 border-[#E63946] shadow-[2px_2px_0px_#E63946]">
               <Banknote className="w-3.5 h-3.5 text-[#E63946] flex-shrink-0" />
-              <span className="truncate">Zero Advance Payment • 100% Cash On Delivery</span>
+              <span className="truncate">{badgeText}</span>
             </div>
 
             <h1 className="font-heading font-black text-2xl xs:text-3xl sm:text-5xl lg:text-6xl text-[#111111] leading-tight uppercase tracking-tight break-words">
-              Check Your Parcel <br className="hidden xs:inline" />
-              <span className="text-[#E63946]">Before Paying Cash</span>
+              {title}
             </h1>
 
             <p className="text-xs sm:text-base md:text-lg text-neutral-700 font-body max-w-2xl leading-relaxed">
-              Welcome to <strong className="text-[#111111] font-bold">Rukhi</strong>. We deliver genuine electronics, fashion, home goods, and beauty products across all 64 districts in Bangladesh with 100% Cash-on-Delivery. Inspect your order at your doorstep before handing over payment.
+              {subtitle}
             </p>
 
             {/* CTAs */}
@@ -33,7 +40,7 @@ export const Hero: React.FC<HeroProps> = ({ onShopClick, onExploreCategoriesClic
                 onClick={onShopClick}
                 className="bg-[#111111] text-white font-heading font-black text-xs sm:text-sm uppercase tracking-wider px-6 sm:px-8 py-3.5 sm:py-4 flex items-center justify-center gap-2 sm:gap-3 shadow-[4px_4px_0px_#E63946] sm:shadow-[6px_6px_0px_#E63946] hover:bg-[#E63946] hover:shadow-[2px_2px_0px_#111111] active:translate-x-1 active:translate-y-1 transition-all cursor-pointer"
               >
-                <span>Browse Products</span>
+                <span>{buttonText}</span>
                 <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
 

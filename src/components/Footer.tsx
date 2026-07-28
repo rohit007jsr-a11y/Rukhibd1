@@ -1,12 +1,20 @@
 import React from 'react';
 import { CATEGORIES } from '../data/mockData';
 import { PhoneCall, MapPin, Mail, ShieldCheck, Truck } from 'lucide-react';
+import { useSiteContent } from '../context/SiteContentContext';
 
 interface FooterProps {
   onSelectCategory: (catId: string) => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({ onSelectCategory }) => {
+  const { siteContent } = useSiteContent();
+  const footerData = (siteContent.footer || {}) as any;
+  const heading = footerData.heading || 'RUKHI BANGLADESH';
+  const description = footerData.description || "Bangladesh's trusted multi-category Cash-on-Delivery e-commerce marketplace.";
+  const phone = footerData.contact_phone || '09612-345678';
+  const email = footerData.contact_email || 'support@rukhi.com.bd';
+
   return (
     <footer className="bg-[#111111] text-white border-t-2 border-[#111111] pt-12 pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
@@ -18,12 +26,12 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory }) => {
                 R
               </div>
               <span className="font-heading font-black text-2xl tracking-wider text-white">
-                RUKHI
+                {heading}
               </span>
             </div>
 
             <p className="text-xs text-neutral-400 font-body leading-relaxed max-w-sm">
-              Bangladesh's trusted multi-category e-commerce platform offering 100% Cash on Delivery across 64 districts. Inspect your parcel before paying cash.
+              {description}
             </p>
 
             <div className="space-y-2 text-xs text-neutral-300 font-body">
@@ -33,11 +41,11 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory }) => {
               </div>
               <div className="flex items-center gap-2">
                 <PhoneCall className="w-4 h-4 text-[#E63946]" />
-                <span>Helpline: 09612-345678 (9 AM - 10 PM)</span>
+                <span>Helpline: {phone} (9 AM - 10 PM)</span>
               </div>
               <div className="flex items-center gap-2">
                 <Mail className="w-4 h-4 text-[#E63946]" />
-                <span>support@rukhi.com.bd</span>
+                <span>{email}</span>
               </div>
             </div>
           </div>

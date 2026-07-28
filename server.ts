@@ -251,7 +251,7 @@ app.put('/api/admin/site-content', async (req, res) => {
     return res.json({ success: true, section_key, content });
   } catch (err: any) {
     console.error('[Update Site Content Error]:', err);
-    return res.json({ success: true, section_key, content });
+    return res.status(500).json({ message: err.message || 'Failed to update section content' });
   }
 });
 
