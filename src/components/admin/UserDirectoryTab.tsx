@@ -168,7 +168,7 @@ export const UserDirectoryTab: React.FC<UserDirectoryTabProps> = ({ userId }) =>
                     </td>
                     <td className="p-3 font-mono font-bold">{u.order_count} orders</td>
                     <td className="p-3 font-heading font-bold text-[#E63946]">
-                      ৳{u.total_spent.toLocaleString()}
+                      ৳{(u.total_spent ?? 0).toLocaleString()}
                     </td>
                     <td className="p-3">
                       <button
@@ -201,7 +201,7 @@ export const UserDirectoryTab: React.FC<UserDirectoryTabProps> = ({ userId }) =>
                   Order History: {selectedUser.full_name || selectedUser.email}
                 </h3>
                 <p className="text-xs text-gray-600 font-body">
-                  Lifetime Value: <strong className="text-[#E63946]">৳{selectedUser.total_spent.toLocaleString()}</strong> ({selectedUser.order_count} total orders)
+                  Lifetime Value: <strong className="text-[#E63946]">৳{(selectedUser.total_spent ?? 0).toLocaleString()}</strong> ({selectedUser.order_count} total orders)
                 </p>
               </div>
 

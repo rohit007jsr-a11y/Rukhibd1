@@ -1,4 +1,32 @@
 import { User, Product, Order } from '../types';
+import { supabase } from '../lib/supabase';
+
+export async function getUserRole(userId?: string, email?: string): Promise<'admin' | 'customer'> {
+  if (email === 'rohitkumarrohitjsr@gmail.com') return 'admin';
+  if (!userId) return 'customer';
+  try {
+    const res = await fetch(`/api/admin/check-role?user_id=${userId}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.isAdmin) return 'admin';
+    }
+  } catch (e) {}
+
+  try {
+    const { data } = await supabase
+      .from('profiles')
+      .select('role, email')
+      .eq('id', userId)
+      .single();
+    if (data) {
+      if (data.email === 'rohitkumarrohitjsr@gmail.com' || data.role === 'admin') {
+        return 'admin';
+      }
+    }
+  } catch (err) {}
+
+  return 'customer';
+}
 
 export const authStorage = {
   getUser: (): User | null => {

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Product, CartItem } from './types';
 import { useScrollReveal } from './hooks/useScrollReveal';
 import { useAuth } from './context/AuthContext';
+import { getUserRole } from './utils/api';
 
 import { TopBanner } from './components/TopBanner';
 import { Navbar } from './components/Navbar';
@@ -43,6 +44,39 @@ export default function App() {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  useEffect(() => {
+    const verifyAndRedirectRole = async () => {
+      const currentPath = window.location.pathname;
+      if (user) {
+        if (user.email === 'rohitkumarrohitjsr@gmail.com') {
+          if (currentPath !== '/admin') {
+            window.history.pushState({}, '', '/admin');
+            setIsAdminView(true);
+          }
+          return;
+        }
+        const role = await getUserRole(user.id, user.email);
+        if (role === 'admin') {
+          if (currentPath !== '/admin') {
+            window.history.pushState({}, '', '/admin');
+            setIsAdminView(true);
+          }
+        } else {
+          if (currentPath === '/admin') {
+            window.history.pushState({}, '', '/');
+            setIsAdminView(false);
+          }
+        }
+      } else {
+        if (currentPath === '/admin') {
+          window.history.pushState({}, '', '/');
+          setIsAdminView(false);
+        }
+      }
+    };
+    verifyAndRedirectRole();
+  }, [user]);
 
   const handleOpenAdmin = () => {
     window.history.pushState({}, '', '/admin');
@@ -146,7 +180,6 @@ export default function App() {
           onOpenSearch={() => setSearchOpen(true)}
           onSelectCategory={handleSelectCategory}
           onOpenAuth={handleOpenAccount}
-          onOpenAdmin={handleOpenAdmin}
         />
 
         <main className="w-full overflow-x-hidden">

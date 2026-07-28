@@ -52,6 +52,7 @@ async function initDB() {
       );
 
       ALTER TABLE profiles ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'customer';
+      UPDATE profiles SET role = 'admin' WHERE email = 'rohitkumarrohitjsr@gmail.com';
 
       CREATE TABLE IF NOT EXISTS products (
         id SERIAL PRIMARY KEY,
@@ -156,14 +157,19 @@ async function initDB() {
 // Admin Verification Helper
 async function isUserAdmin(userId?: string): Promise<boolean> {
   if (!userId || !dbConnected) return false;
+  if (userId === 'rohitkumarrohitjsr@gmail.com') return true;
   try {
-    const profRes = await pool.query('SELECT role FROM profiles WHERE id = $1', [userId]);
-    if (profRes.rows.length > 0 && profRes.rows[0].role === 'admin') {
-      return true;
+    const emailCheck = await pool.query('SELECT role, email FROM profiles WHERE id = $1 OR email = $2', [userId, 'rohitkumarrohitjsr@gmail.com']);
+    for (const row of emailCheck.rows) {
+      if (row.email === 'rohitkumarrohitjsr@gmail.com' || row.role === 'admin') {
+        return true;
+      }
     }
-    const userRes = await pool.query('SELECT role FROM users WHERE id = $1', [userId]);
-    if (userRes.rows.length > 0 && userRes.rows[0].role === 'admin') {
-      return true;
+    const userCheck = await pool.query('SELECT role, email FROM users WHERE id = $1 OR email = $2', [userId, 'rohitkumarrohitjsr@gmail.com']);
+    for (const row of userCheck.rows) {
+      if (row.email === 'rohitkumarrohitjsr@gmail.com' || row.role === 'admin') {
+        return true;
+      }
     }
     return false;
   } catch (err) {

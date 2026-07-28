@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { getUserRole } from '../utils/api';
 import { X, Mail, ShieldCheck, ArrowRight, RefreshCw } from 'lucide-react';
 
 interface AuthModalProps {
@@ -83,14 +84,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       if (mode === 'signup') {
         setStep('details');
       } else {
+        const userId = data.user.id;
+        const userEmail = data.user.email || email;
+        const role = await getUserRole(userId, userEmail);
+
         const userObj: User = {
-          id: data.user.id,
-          email: data.user.email || email,
+          id: userId,
+          email: userEmail,
           full_name: data.user.user_metadata?.full_name || email.split('@')[0],
           phone: data.user.user_metadata?.phone || '',
         };
         loginUser(userObj);
         onSuccess(userObj);
+        onClose();
+
+        if (role === 'admin') {
+          window.history.pushState({}, '', '/admin');
+          window.location.reload();
+        } else {
+          window.history.pushState({}, '', '/');
+          window.location.reload();
+        }
       }
     } catch (err: any) {
       setLoading(false);
@@ -121,9 +135,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         throw new Error('Could not retrieve authenticated Supabase user ID.');
       }
 
+      const userId = realUser.id;
+      const userEmail = realUser.email || email;
+      const role = await getUserRole(userId, userEmail);
+
       const userObj: User = {
-        id: realUser.id,
-        email: realUser.email || email,
+        id: userId,
+        email: userEmail,
         full_name: fullName,
         phone,
         address,
@@ -131,6 +149,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       loginUser(userObj);
       setLoading(false);
       onSuccess(userObj);
+      onClose();
+
+      if (role === 'admin') {
+        window.history.pushState({}, '', '/admin');
+        window.location.reload();
+      } else {
+        window.history.pushState({}, '', '/');
+        window.location.reload();
+      }
     } catch (err: any) {
       setLoading(false);
       setErrorMsg(err.message || 'Profile save failed.');

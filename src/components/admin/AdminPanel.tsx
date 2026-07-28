@@ -25,6 +25,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
         return;
       }
 
+      if (user.email === 'rohitkumarrohitjsr@gmail.com') {
+        setIsAdmin(true);
+        setCheckingRole(false);
+        return;
+      }
+
       // Check in-memory profile first
       if (profile && profile.role === 'admin') {
         setIsAdmin(true);

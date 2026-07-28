@@ -4,6 +4,7 @@ import { authStorage, loginUserApi, registerUserApi } from '../utils/api';
 
 interface AuthContextType {
   user: User | null;
+  profile?: any;
   loading: boolean;
   loginUser: (userData: User, token?: string) => void;
   logoutUser: () => void;
@@ -78,6 +79,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     <AuthContext.Provider
       value={{
         user,
+        profile: user,
         loading,
         loginUser,
         logoutUser,
