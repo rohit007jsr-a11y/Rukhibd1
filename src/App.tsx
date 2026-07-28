@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Product, CartItem } from './types';
 import { useScrollReveal } from './hooks/useScrollReveal';
 import { useAuth } from './context/AuthContext';
-import { getUserRole } from './utils/api';
+import { getUserRole, fetchProducts } from './utils/api';
+import { PRODUCTS } from './data/mockData';
 
 import { TopBanner } from './components/TopBanner';
 import { Navbar } from './components/Navbar';
@@ -31,11 +32,20 @@ export default function App() {
 
   // State
   const [activeCategory, setActiveCategory] = useState('all');
+  const [products, setProducts] = useState<Product[]>(PRODUCTS);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [wishlist, setWishlist] = useState<Product[]>([]);
   const [isAdminView, setIsAdminView] = useState(() => {
     return window.location.pathname === '/admin' || window.location.hash === '#admin';
   });
+
+  useEffect(() => {
+    fetchProducts().then((data) => {
+      if (data && data.length > 0) {
+        setProducts(data);
+      }
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -197,6 +207,7 @@ export default function App() {
           <CategoryGrid onSelectCategory={handleSelectCategory} />
 
           <FeaturedProducts
+            products={products}
             activeCategory={activeCategory}
             wishlistIds={wishlist.map((p) => p.id)}
             onAddToCart={(p) => handleAddToCart(p, 1)}
@@ -256,6 +267,7 @@ export default function App() {
         onClose={() => setSearchOpen(false)}
         onSelectProduct={(p) => setQuickViewProduct(p)}
         onSelectCategory={(catId) => setActiveCategory(catId)}
+        products={products}
       />
 
       <CheckoutModal
