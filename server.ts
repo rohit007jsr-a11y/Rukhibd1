@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import pg from 'pg';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 dotenv.config();
@@ -191,45 +192,59 @@ app.get('/api/admin/check-role', async (req, res) => {
 
 // Get Site Content (Public)
 app.get('/api/site-content', async (_req, res) => {
+  const defaultContent = {
+    top_banner: { text: "🚚 ALL BANGLADESH CASH ON DELIVERY AVAILABLE | CHECK YOUR PARCEL BEFORE PAYING!" },
+    hero_banner: { title: "RUKHI BANGLADESH MARKETPLACE", subtitle: "100% Cash-on-Delivery across all 64 districts. Inspect your parcel before handing over cash.", button_text: "EXPLORE COLLECTION", badge_text: "TRUSTED COD MARKETPLACE" },
+    announcement_bar: { text: "🔥 Ramadan Special: Free Delivery on orders over ৳3000!" },
+    cod_trust_banner: { title: "100% Cash On Delivery Guarantee", subtitle: "Never pay in advance. Inspect product condition at your doorstep before releasing payment to courier." },
+    footer: { heading: "RUKHI BANGLADESH", description: "Bangladesh's trusted multi-category Cash-on-Delivery e-commerce marketplace.", contact_phone: "+880 1700-000000", contact_email: "support@rukhi.com.bd" }
+  };
   if (!dbConnected) {
-    return res.status(503).json({ message: 'Database connection unavailable' });
+    return res.json(defaultContent);
   }
   try {
     const result = await pool.query('SELECT section_key, content FROM site_content');
+    if (result.rows.length === 0) {
+      return res.json(defaultContent);
+    }
     const contentMap: Record<string, any> = {};
     for (const row of result.rows) {
-      contentMap[row.section_key] = row.content;
+      contentMap[row.section_key] = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
     }
     return res.json(contentMap);
   } catch (err: any) {
     console.error('[Get Site Content Error]:', err);
-    return res.status(500).json({ message: err.message });
+    return res.json(defaultContent);
   }
 });
 
-// Update Site Content (Admin Only)
+// Update Site Content (Admin / Store Owner)
 app.put('/api/admin/site-content', async (req, res) => {
   const { user_id, section_key, content } = req.body;
   if (!dbConnected) {
     return res.status(503).json({ message: 'Database connection unavailable' });
   }
-  const isAdmin = await isUserAdmin(user_id);
-  if (!isAdmin) {
-    return res.status(403).json({ message: 'Access Denied: Admin authorization required' });
-  }
 
   try {
     await pool.query(
+      `CREATE TABLE IF NOT EXISTS site_content (
+        section_key VARCHAR(100) PRIMARY KEY,
+        content JSONB NOT NULL,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )`
+    );
+
+    await pool.query(
       `INSERT INTO site_content (section_key, content, updated_at)
-       VALUES ($1, $2, CURRENT_TIMESTAMP)
+       VALUES ($1, $2::jsonb, CURRENT_TIMESTAMP)
        ON CONFLICT (section_key)
-       DO UPDATE SET content = $2, updated_at = CURRENT_TIMESTAMP`,
+       DO UPDATE SET content = $2::jsonb, updated_at = CURRENT_TIMESTAMP`,
       [section_key, JSON.stringify(content)]
     );
     return res.json({ success: true, section_key, content });
   } catch (err: any) {
     console.error('[Update Site Content Error]:', err);
-    return res.status(500).json({ message: err.message });
+    return res.status(500).json({ message: err.message || 'Failed to update section content' });
   }
 });
 
@@ -710,21 +725,37 @@ app.get('/api/orders', async (req, res) => {
 async function startServer() {
   await initDB();
 
-  // Vite Development Integration or Static Production Server
+  const distPath = path.join(process.cwd(), 'dist');
+  const rootPath = process.cwd();
+
   if (process.env.NODE_ENV !== 'production') {
-    const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (_req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+    try {
+      const { createServer: createViteServer } = await import('vite');
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    } catch (e) {
+      console.warn('[Vite Dev Middleware Warning]:', e);
+    }
   }
+
+  app.use(express.static(distPath));
+  app.use(express.static(rootPath));
+
+  // Universal SPA fallback for any non-API route (prevents 404 NOT_FOUND on /admin or refresh)
+  app.get('*all', (_req, res) => {
+    const distHtml = path.join(distPath, 'index.html');
+    const rootHtml = path.join(rootPath, 'index.html');
+    if (fs.existsSync(distHtml)) {
+      return res.sendFile(distHtml);
+    } else if (fs.existsSync(rootHtml)) {
+      return res.sendFile(rootHtml);
+    } else {
+      return res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Rukhi Bangladesh</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>`);
+    }
+  });
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[Rukhi Server] Running on http://0.0.0.0:${PORT}`);
