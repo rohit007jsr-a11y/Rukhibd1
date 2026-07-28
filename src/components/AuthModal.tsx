@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User } from '../types';
-import { sendOtpApi, verifyOtpApi, registerUserApi, loginUserApi } from '../utils/api';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { X, Mail, ShieldCheck, ArrowRight, RefreshCw } from 'lucide-react';
 
@@ -20,12 +20,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
 
   const [email, setEmail] = useState('');
   const [otpCode, setOtpCode] = useState('');
-  const [devOtp, setDevOtp] = useState<string | null>(null);
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
-  const [password, setPassword] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -40,13 +38,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
 
     setLoading(true);
     try {
-      const res = await sendOtpApi(email, mode);
+      // Direct call to Supabase Client in the browser
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: mode === 'signup',
+        },
+      });
+
+      if (error) throw error;
+
       setLoading(false);
-      if (res.devOtp) setDevOtp(res.devOtp);
       setStep('otp');
     } catch (err: any) {
       setLoading(false);
-      setErrorMsg(err.message || 'Failed to send OTP code.');
+      setErrorMsg(err.message || 'Failed to send OTP code via Supabase.');
     }
   };
 
@@ -60,14 +66,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
 
     setLoading(true);
     try {
-      await verifyOtpApi(email, otpCode);
+      // Direct call to Supabase Client in the browser
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token: otpCode,
+        type: 'email',
+      });
+
+      if (error) throw error;
+
+      if (!data.user?.id) {
+        throw new Error('Could not retrieve user details from Supabase.');
+      }
+
       setLoading(false);
       if (mode === 'signup') {
         setStep('details');
       } else {
-        const res = await loginUserApi(email, password);
-        loginUser(res.user);
-        onSuccess(res.user);
+        const userObj: User = {
+          id: data.user.id,
+          email: data.user.email || email,
+          full_name: data.user.user_metadata?.full_name || email.split('@')[0],
+          phone: data.user.user_metadata?.phone || '',
+        };
+        loginUser(userObj);
+        onSuccess(userObj);
       }
     } catch (err: any) {
       setLoading(false);
@@ -85,19 +108,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
 
     setLoading(true);
     try {
-      const res = await registerUserApi({
-        email,
-        fullName,
+      // Direct update to user metadata using Supabase Auth client in the browser
+      const { data: updateData, error: updateError } = await supabase.auth.updateUser({
+        data: { full_name: fullName, phone, address },
+      });
+      if (updateError) throw updateError;
+
+      const { data: userData } = await supabase.auth.getUser();
+      const realUser = updateData.user || userData?.user;
+
+      if (!realUser?.id) {
+        throw new Error('Could not retrieve authenticated Supabase user ID.');
+      }
+
+      const userObj: User = {
+        id: realUser.id,
+        email: realUser.email || email,
+        full_name: fullName,
         phone,
         address,
-        password,
-      });
-      loginUser(res.user);
+      };
+      loginUser(userObj);
       setLoading(false);
-      onSuccess(res.user);
+      onSuccess(userObj);
     } catch (err: any) {
       setLoading(false);
-      setErrorMsg(err.message || 'Registration failed.');
+      setErrorMsg(err.message || 'Profile save failed.');
     }
   };
 
@@ -183,11 +219,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                 <p className="text-xs text-gray-500 font-body">
                   Code sent to <span className="font-bold text-[#111111]">{email}</span>
                 </p>
-                {devOtp && (
-                  <div className="mt-2 p-2 bg-amber-50 border border-amber-300 text-amber-900 text-xs font-mono font-bold">
-                    DEV CODE: {devOtp}
-                  </div>
-                )}
               </div>
 
               <div>
